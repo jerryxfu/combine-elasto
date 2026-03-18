@@ -25,19 +25,38 @@
 .PARAMETER Crf
     FFmpeg quality. 0 = best, 51 = worst. Default is 18.
 
+.PARAMETER Help
+    Show this help menu.
+
 .EXAMPLE
     .\combine_videos.ps1 -Patient 55
     .\combine_videos.ps1 -Patient 55 -InputDir C:\videos -OutputDir C:\output
     .\combine_videos.ps1 -Patient 55 -Clip 031
+    .\combine_videos.ps1 -Help
 #>
 
 param(
-    [Parameter(Mandatory)] [string] $Patient,
+    [Parameter(Mandatory = $false)] [string] $Patient = "",
     [string] $InputDir = ".",
     [string] $OutputDir = ".\combined",
     [string] $Clip = "",
-    [int]    $Crf = 18
+    [int]    $Crf = 18,
+    [switch] $Help
 )
+
+# Show full help and exit if -Help was passed
+if ($Help)
+{
+    Get-Help $PSCommandPath -Detailed
+    exit 0
+}
+
+# Patient is required if not asking for help
+if (-not $Patient)
+{
+    Write-Error "Patient number is required. Use -Patient 55, or run .\combine_videos.ps1 -Help"
+    exit 1
+}
 
 
 # CROP SETTINGS (pixels to remove per side)
@@ -78,7 +97,6 @@ Write-Host ""
 
 
 # MAIN LOOP
-# Counters
 $SuccessCount = 0
 $FailCount = 0
 $TotalCount = 0
@@ -96,8 +114,8 @@ if (-not $v1Files)
 
 foreach ($v1File in $v1Files)
 {
+
     # Extract clip number from filename (VS_55_031.dat_BmodeSeg_v1.mp4)
-    # Regex: capture everything between patient number and ".dat"
     if ($v1File.BaseName -match "VS_${Patient}_(.+?)\.dat")
     {
         $clipNum = $Matches[1]
@@ -191,5 +209,5 @@ foreach ($v1File in $v1Files)
     Write-Host ""
 }
 
-# SUMMARy
+# SUMMARY
 Write-Host "Done: $SuccessCount combined, $FailCount failed, $TotalCount total."
