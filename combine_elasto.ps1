@@ -20,7 +20,7 @@
     Folder to save combined videos. Defaults to .\combined
 
 .PARAMETER Clip
-    Only process a specific clip number (e.g. 031).
+    Only process a specific clip number (e.g. 31 or 031).
 
 .PARAMETER Crf
     FFmpeg quality. 0 = best, 51 = worst. Default is 18.
@@ -31,15 +31,15 @@
 .EXAMPLE
     .\combine_videos.ps1 -Patient 55
     .\combine_videos.ps1 -Patient 55 -InputDir C:\videos -OutputDir C:\output
-    .\combine_videos.ps1 -Patient 55 -Clip 031
+    .\combine_videos.ps1 -Patient 55 -Clip 31
     .\combine_videos.ps1 -Help
 #>
 
 param(
-    [Parameter(Mandatory = $false)] [string] $Patient = "",
+    [Parameter(Mandatory = $false)] [int] $Patient = 0,
     [string] $InputDir = ".",
     [string] $OutputDir = ".\combined",
-    [string] $Clip = "",
+    [int]    $Clip = -1,
     [int]    $Crf = 18,
     [switch] $Help
 )
@@ -52,7 +52,7 @@ if ($Help)
 }
 
 # Patient is required if not asking for help
-if (-not $Patient)
+if ($Patient -eq 0)
 {
     Write-Error "Patient number is required. Use -Patient 55, or run .\combine_videos.ps1 -Help"
     exit 1
@@ -89,9 +89,9 @@ Write-Host ""
 Write-Host "Patient:    $Patient"
 Write-Host "Input dir:  $InputDir"
 Write-Host "Output dir: $OutputDir"
-if ($Clip)
+if ($Clip -ge 0)
 {
-    Write-Host "Clip:       $Clip"
+    Write-Host "Clip:       $($Clip.ToString().PadLeft(3, '0') )"
 }
 Write-Host ""
 
@@ -114,7 +114,6 @@ if (-not $v1Files)
 
 foreach ($v1File in $v1Files)
 {
-
     # Extract clip number from filename (VS_55_031.dat_BmodeSeg_v1.mp4)
     if ($v1File.BaseName -match "VS_${Patient}_(.+?)\.dat")
     {
@@ -125,8 +124,11 @@ foreach ($v1File in $v1Files)
         continue
     }
 
+    # Pad clip number to 3 digits
+    $clipNum = $clipNum.PadLeft(3, '0')
+
     # Skip if clip filter does not match this clip
-    if ($Clip -and $clipNum -ne $Clip)
+    if ($Clip -ge 0 -and $clipNum -ne $Clip.ToString().PadLeft(3, '0'))
     {
         continue
     }
