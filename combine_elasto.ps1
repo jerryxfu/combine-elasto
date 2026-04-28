@@ -164,22 +164,27 @@ foreach ($v1File in $v1Files)
     # Build the FFmpeg filter
     # 1. Crop each video, remove borders
     # 2. hstack, place videos side by side
-    # 3. drawtext labels
+    # 3. drawtext labels (optional - will be skipped if fontconfig unavailable)
     $crop = "crop=iw-${CropLeft}-${CropRight}:ih-${CropTop}-${CropBottom}:${CropLeft}:${CropTop}"
 
-    $filter = "[0:v]${crop}[a];[1:v]${crop}[b];[2:v]${crop}[c];" +
+    # Filter with labels
+    $filterWithLabels = "[0:v]${crop}[a];[1:v]${crop}[b];[2:v]${crop}[c];" +
             "[a][b][c]hstack=inputs=3[h];" +
             "[h]drawtext=text='v1':fontsize=24:fontcolor=white:borderw=2:x=10:y=10," +
             "drawtext=text='v3':fontsize=24:fontcolor=white:borderw=2:x=w/3+10:y=10," +
             "drawtext=text='v4':fontsize=24:fontcolor=white:borderw=2:x=2*w/3+10:y=10[out]"
 
-    # Run FFmpeg
+    # Filter without labels (fallback)
+    $filterNoLabels = "[0:v]${crop}[a];[1:v]${crop}[b];[2:v]${crop}[c];[a][b][c]hstack=inputs=3[out]"
+
+    # Try with labels first
+    $labelsAttempted = $false
     $ffmpegArgs = @(
         "-y",
         "-i", $v1,
         "-i", $v3,
         "-i", $v4,
-        "-filter_complex", $filter,
+        "-filter_complex", $filterWithLabels,
         "-map", "[out]",
         "-c:v", "libx264",
         "-crf", $Crf,
@@ -189,7 +194,38 @@ foreach ($v1File in $v1Files)
         "-loglevel", "warning"
     )
 
-    & ffmpeg @ffmpegArgs
+    & ffmpeg @ffmpegArgs 2>&1 | Out-Null
+    $ffmpegSuccess = $LASTEXITCODE -eq 0
+
+    # If labels failed (e.g., fontconfig error), retry without labels
+    if (-not $ffmpegSuccess -and (Test-Path $out))
+    {
+        Remove-Item $out -Force
+    }
+
+    if (-not $ffmpegSuccess)
+    {
+        Write-Host "  (Labels skipped - fontconfig unavailable, retrying without labels...)"
+        $labelsAttempted = $true
+
+        $ffmpegArgs = @(
+            "-y",
+            "-i", $v1,
+            "-i", $v3,
+            "-i", $v4,
+            "-filter_complex", $filterNoLabels,
+            "-map", "[out]",
+            "-c:v", "libx264",
+            "-crf", $Crf,
+            "-preset", "medium",
+            "-pix_fmt", "yuv420p",
+            $out,
+            "-loglevel", "warning"
+        )
+
+        & ffmpeg @ffmpegArgs 2>&1 | Out-Null
+        $ffmpegSuccess = $LASTEXITCODE -eq 0
+    }
 
     # Check output was created and is non-empty
     if (-not (Test-Path $out) -or (Get-Item $out).Length -eq 0)
@@ -204,7 +240,15 @@ foreach ($v1File in $v1Files)
     else
     {
         $size = (Get-Item $out).Length
-        Write-Host "OK: $out ($size bytes)"
+        $labelStatus = if ($labelsAttempted)
+        {
+            " (without labels)"
+        }
+        else
+        {
+            " (with labels)"
+        }
+        Write-Host "OK: $out ($size bytes)$labelStatus"
         $SuccessCount++
     }
 
