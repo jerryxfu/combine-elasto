@@ -8,7 +8,7 @@ Script: `combine_elasto.ps1`
 
 - PowerShell 7+ (`pwsh`) recommended
 - FFmpeg installed and available in `PATH`
-- Fontconfig (optional - for video labels, will auto-skip if unavailable)
+- Fontconfig (optional: for video labels, will auto-skip if unavailable)
 - Input videos named like:
 
 `VS_{patient}_{clip}.dat_BmodeSeg_v1.mp4`  
@@ -27,14 +27,12 @@ Example:
 
 ```bash
 brew install ffmpeg
-ffmpeg -version
 ```
 
 ### Windows (winget)
 
 ```powershell
 winget install ffmpeg
-ffmpeg -version
 ```
 
 ### Ubuntu/Debian
@@ -42,7 +40,6 @@ ffmpeg -version
 ```bash
 sudo apt update
 sudo apt install -y ffmpeg
-ffmpeg -version
 ```
 
 ## 2) Run the script
@@ -57,8 +54,7 @@ Optional arguments:
 
 - `-InputDir` folder with input videos (default: current folder)
 - `-OutputDir` output folder (default: `./combined`)
-- `-Clip` process one clip only (e.g. `31` or `031`)
-- `-Crf` quality (0 best, 51 worst, default `18`)
+- `-Clip` process one clip only (e.g. `32`)
 - `-Help` show script help
 
 Examples:
@@ -77,7 +73,7 @@ Combined videos are written to the output folder as:
 `VS_{patient}_{clip}_combined.mp4`
 
 **Note on Labels:** The script will automatically add text labels (v1, v3, v4) to each video section if fontconfig is available. If fontconfig is not installed,
-the script will automatically retry without labels, so the video will still be created successfully—just without the text overlays.
+the script will automatically retry without labels.
 
 ## Troubleshooting
 
@@ -85,7 +81,7 @@ the script will automatically retry without labels, so the video will still be c
   Install FFmpeg and ensure `ffmpeg` is on your `PATH`.
 
 - **`No matching files found`**  
-  Check patient ID and file naming pattern exactly.
+  Check patient ID and file naming pattern.
 
 - **Clip skipped / missing files**  
   For each clip, all 3 files (`v1`, `v3`, `v4`) must exist.
@@ -94,4 +90,3 @@ the script will automatically retry without labels, so the video will still be c
   The script automatically skips text labels if fontconfig is unavailable. If you want labels, install fontconfig:
     - macOS: `brew install fontconfig`
     - Linux: `sudo apt install fontconfig`
-
