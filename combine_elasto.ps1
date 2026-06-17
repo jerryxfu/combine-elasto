@@ -1,3 +1,4 @@
+# THE POWERSHELL VERSION IS NOW DEPRECATED. PLEASE USE THE PYTHON SCRIPT INSTEAD.
 <#
 .SYNOPSIS
     Combines v1, v3, and v4 segmentation videos side-by-side.
