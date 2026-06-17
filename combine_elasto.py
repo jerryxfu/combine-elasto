@@ -13,7 +13,7 @@ Works on Windows, macOS, and Linux. Requires Python 3.8+ and FFmpeg on PATH.
 
 Usage:
     python combine_elasto.py --patient 55
-    python combine_elasto.py --patient 55 --clip 31
+    python combine_elasto.py --patient 55 --clips 31
     python combine_elasto.py --patient 79 --input-dir ./videos --output-dir ./out
 """
 
@@ -346,8 +346,8 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "examples:\n"
             "  python combine_elasto.py --patient 55\n"
-            '  python combine_elasto.py --patient 55 --clip 31\n'
-            '  python combine_elasto.py --patient 55 --clip "2 3:6 9:14 15"\n'
+            '  python combine_elasto.py --patient 55 --clips 31\n'
+            '  python combine_elasto.py --patient 55 --clips "2 3:6 9:14 15"\n'
             "  python combine_elasto.py --patient 79 --input-dir ./videos\n"
         ),
     )
@@ -355,7 +355,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("-i", "--input-dir", type=Path, default=Path("."), help="folder with input videos")
     p.add_argument("-o", "--output-dir", type=Path, default=Path("./combined"), help="output folder")
     p.add_argument(
-        "-c", "--clip", type=str, default=None, metavar="SPEC",
+        "-c", "--clips", type=str, default=None, metavar="SPEC",
         help='clips to process, MATLAB-style (e.g. "2 3:6 9:14 15"); omit for all',
     )
     return p.parse_args()
@@ -385,14 +385,14 @@ def main() -> int:
 
     # Parse the clip selection (None = all clips found).
     requested: list[int] | None = None
-    if args.clip is not None:
+    if args.clips is not None:
         try:
-            requested = parse_clip_spec(args.clip)
+            requested = parse_clip_spec(args.clips)
         except ValueError as e:
-            error(f"Bad --clip value: {e}")
+            error(f"Bad --clips value: {e}")
             return 1
         if not requested:
-            error("--clip was given but resolved to no clips")
+            error("--clips was given but resolved to no clips")
             return 1
 
     print()
