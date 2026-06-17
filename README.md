@@ -63,7 +63,7 @@ The `--clips` argument uses MATLAB-style ranges: space-separated tokens, each a 
 quotes:
 
 ```bash
-python combine_elasto.py --patient 55 --clip "2 3:6 9:14 15"
+python combine_elasto.py --patient 55 --clips "2 3:6 9:14 15"
 ```
 
 That processes clips 2, 3, 4, 5, 6, 9 through 14, and 15. Leading zeros are optional (`5` matches `005`).
@@ -72,8 +72,8 @@ Examples:
 
 ```bash
 python combine_elasto.py --patient 55
-python combine_elasto.py --patient 55 --clip 31
-python combine_elasto.py --patient 55 --clip "2 3:6 9:14 15"
+python combine_elasto.py --patient 55 --clips 31
+python combine_elasto.py --patient 55 --clips "2 3:6 9:14 15"
 python combine_elasto.py --patient 55 --input-dir ./videos --output-dir ./combined
 python combine_elasto.py --help
 ```
