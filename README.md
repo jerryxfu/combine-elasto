@@ -1,5 +1,7 @@
 # combine-elasto
 
+https://github.com/jerryxfu/combine-elasto
+
 Combine 3 video versions (`v1`, `v3`, `v4`) side-by-side into one output video using FFmpeg.
 
 Script: `combine_elasto.py`
@@ -7,6 +9,7 @@ Script: `combine_elasto.py`
 ## Requirements
 
 - Python 3.8+
+  - `winget install Python.Python.3.14` (Windows)
 - FFmpeg installed and available in `PATH`
 - Fontconfig (optional: for video labels, auto-skips if unavailable)
 - Input videos named like:
