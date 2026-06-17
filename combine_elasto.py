@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import platform
 import shutil
 import subprocess
 import sys
@@ -43,6 +44,28 @@ CRF = 18
 
 # Preset trades encode speed for compression efficiency.
 PRESET = "medium"
+
+# Candidate font files per platform, tried in order. The first one that exists
+# is passed explicitly to drawtext, which avoids relying on fontconfig (often
+# broken on winget/Homebrew FFmpeg builds). Add your own path at the top of the
+# relevant list if none of these exist on your machine.
+FONT_CANDIDATES = {
+    "Windows": [
+        r"C:\Windows\Fonts\arial.ttf",
+        r"C:\Windows\Fonts\segoeui.ttf",
+        r"C:\Windows\Fonts\calibri.ttf",
+    ],
+    "Darwin": [
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+    ],
+    "Linux": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    ],
+}
 
 
 # ── Console output helpers ─────────────────────────────────────────────────
@@ -88,14 +111,39 @@ def crop_filter() -> str:
     return f"crop={w}:{h}:{CROP['left']}:{CROP['top']}"
 
 
-def label_filter(versions: tuple[str, ...]) -> str:
-    """Chained drawtext filters, one label per panel."""
+def find_font() -> str | None:
+    """Return the first existing font file for this platform, or None."""
+    for path in FONT_CANDIDATES.get(platform.system(), []):
+        if Path(path).is_file():
+            return path
+    return None
+
+
+def escape_fontfile(path: str) -> str:
+    """
+    Escape a font path for use inside an FFmpeg filtergraph.
+
+    FFmpeg's filter parser treats ':' and '\\' specially, so on Windows a path
+    like 'C:\\Windows\\Fonts\\arial.ttf' must become 'C\\:/Windows/Fonts/arial.ttf'.
+    """
+    p = path.replace("\\", "/")  # backslashes -> forward slashes
+    p = p.replace(":", r"\:")  # escape the drive-letter colon
+    return p
+
+
+def label_filter(versions: tuple[str, ...], font: str | None) -> str:
+    """Chained drawtext filters, one label per panel.
+
+    If `font` is given, it's passed explicitly via fontfile; otherwise drawtext
+    falls back to fontconfig's default font.
+    """
     n = len(versions)
     parts = []
+    fontfile = f"fontfile='{escape_fontfile(font)}':" if font else ""
     for i, version in enumerate(versions):
         x = str(LABEL["x_offset"]) if i == 0 else f"{i}*w/{n}+{LABEL['x_offset']}"
         parts.append(
-            f"drawtext=text='{version}'"
+            f"drawtext={fontfile}text='{version}'"
             f":fontsize={LABEL['font_size']}"
             f":fontcolor={LABEL['color']}"
             f":borderw={LABEL['border_width']}"
@@ -104,8 +152,14 @@ def label_filter(versions: tuple[str, ...]) -> str:
     return ",".join(parts)
 
 
-def build_filtergraph(with_labels: bool) -> str:
-    """Crop each input, stack horizontally, then optionally draw labels."""
+def build_filtergraph(label_mode: str, font: str | None = None) -> str:
+    """Crop each input, stack horizontally, then optionally draw labels.
+
+    label_mode:
+        "font"       - draw labels with an explicit font file (most reliable)
+        "fontconfig" - draw labels letting fontconfig pick the font
+        "none"       - no labels
+    """
     crop = crop_filter()
     n = len(VERSIONS)
 
@@ -119,9 +173,11 @@ def build_filtergraph(with_labels: bool) -> str:
     graph = ";".join(crop_stages)
     graph += f";{''.join(stack_inputs)}hstack=inputs={n}"
 
-    if with_labels:
-        graph += f"[h];[h]{label_filter(VERSIONS)}[out]"
-    else:
+    if label_mode == "font":
+        graph += f"[h];[h]{label_filter(VERSIONS, font)}[out]"
+    elif label_mode == "fontconfig":
+        graph += f"[h];[h]{label_filter(VERSIONS, None)}[out]"
+    else:  # "none"
         graph += "[out]"
 
     return graph
@@ -248,20 +304,27 @@ def process_clip(clip: Clip) -> str:
 
     info(f"Clip {clip.number} ...")
 
-    # Try with labels first; if FFmpeg can't render text (e.g. no fontconfig),
-    # fall back to a plain stack.
-    used_labels = True
-    run_ffmpeg(clip.inputs, build_filtergraph(with_labels=True), clip.output)
+    # Try labels in order of reliability: explicit font file, then fontconfig,
+    # then no labels at all. Each tier is only attempted if the previous one
+    # didn't produce a valid output.
+    attempts = []
+    if FONT_FILE:
+        attempts.append(("font", build_filtergraph("font", FONT_FILE)))
+    attempts.append(("fontconfig", build_filtergraph("fontconfig")))
+    attempts.append(("none", build_filtergraph("none")))
 
-    if not output_valid(clip.output):
-        warn("Labels failed (fontconfig issue?), retrying without ...")
-        used_labels = False
-        run_ffmpeg(clip.inputs, build_filtergraph(with_labels=False), clip.output)
+    label_status = ""
+    for mode, graph in attempts:
+        run_ffmpeg(clip.inputs, graph, clip.output)
+        if output_valid(clip.output):
+            label_status = "" if mode != "none" else " (no labels)"
+            break
+        if mode != "none":
+            warn(f"Labels via {mode} failed, retrying ...")
 
     if output_valid(clip.output):
         size = human_size(clip.output.stat().st_size)
-        tag = "" if used_labels else " (no labels)"
-        ok(f"{clip.output.name} ({size}){tag}")
+        ok(f"{clip.output.name} ({size}){label_status}")
         return "ok"
 
     error(f"Failed for clip {clip.number}: {run_ffmpeg.last_error}")
@@ -273,6 +336,7 @@ def process_clip(clip: Clip) -> str:
 # ── Entry point ────────────────────────────────────────────────────────────
 
 OUTPUT_DIR = Path("./combined")  # set in main()
+FONT_FILE: str | None = None  # set in main()
 
 
 def parse_args() -> argparse.Namespace:
@@ -282,8 +346,8 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "examples:\n"
             "  python combine_elasto.py --patient 55\n"
-            '  python combine_elasto.py --patient 55 --clips 31\n'
-            '  python combine_elasto.py --patient 55 --clips "2 3:6 9:14 15"\n'
+            '  python combine_elasto.py --patient 55 --clip 31\n'
+            '  python combine_elasto.py --patient 55 --clip "2 3:6 9:14 15"\n'
             "  python combine_elasto.py --patient 79 --input-dir ./videos\n"
         ),
     )
@@ -291,14 +355,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("-i", "--input-dir", type=Path, default=Path("."), help="folder with input videos")
     p.add_argument("-o", "--output-dir", type=Path, default=Path("./combined"), help="output folder")
     p.add_argument(
-        "-c", "--clips", type=str, default=None, metavar="SPEC",
+        "-c", "--clip", type=str, default=None, metavar="SPEC",
         help='clips to process, MATLAB-style (e.g. "2 3:6 9:14 15"); omit for all',
     )
     return p.parse_args()
 
 
 def main() -> int:
-    global OUTPUT_DIR
+    global OUTPUT_DIR, FONT_FILE
     args = parse_args()
 
     if shutil.which("ffmpeg") is None:
@@ -308,6 +372,8 @@ def main() -> int:
         print("    macOS:    brew install ffmpeg")
         print("    Linux:    sudo apt install ffmpeg")
         return 1
+
+    FONT_FILE = find_font()
 
     input_dir = args.input_dir.resolve()
     if not input_dir.is_dir():
@@ -319,14 +385,14 @@ def main() -> int:
 
     # Parse the clip selection (None = all clips found).
     requested: list[int] | None = None
-    if args.clips is not None:
+    if args.clip is not None:
         try:
-            requested = parse_clip_spec(args.clips)
+            requested = parse_clip_spec(args.clip)
         except ValueError as e:
-            error(f"Bad --clips value: {e}")
+            error(f"Bad --clip value: {e}")
             return 1
         if not requested:
-            error("--clips was given but resolved to no clips")
+            error("--clip was given but resolved to no clips")
             return 1
 
     print()
@@ -335,6 +401,8 @@ def main() -> int:
     print(f"  Versions:   {', '.join(VERSIONS)}")
     print(f"  Input:      {input_dir}")
     print(f"  Output:     {OUTPUT_DIR}")
+    font_label = FONT_FILE if FONT_FILE else "none found (will try fontconfig)"
+    print(f"  Font:       {font_label}")
     if requested is not None:
         preview = ", ".join(str(n).zfill(3) for n in requested)
         print(f"  Clips:      {preview}")
