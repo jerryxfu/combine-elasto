@@ -6,8 +6,7 @@ Combine v1, v3, and v4 segmentation videos side-by-side into one output video.
 
 Finds video triplets matching the pattern:
     VS_{patient}_{clip}.dat_BmodeSeg_{v1,v3,v4}.mp4
-crops each, stacks them horizontally, adds version labels, and encodes the
-result with FFmpeg.
+crops each, stacks them horizontally, adds version labels, and encodes the result with FFmpeg.
 
 Works on Windows, macOS, and Linux. Requires Python 3.8+ and FFmpeg on PATH.
 
@@ -20,15 +19,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import re
 import platform
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# ── Configuration ──────────────────────────────────────────────────────────
+# --- Configuration ---
 
 # Crop margins: pixels to remove from each edge of every input video.
 CROP = {"top": 50, "bottom": 76, "left": 110, "right": 110}
@@ -68,7 +67,7 @@ FONT_CANDIDATES = {
 }
 
 
-# ── Console output helpers ─────────────────────────────────────────────────
+# --- Console output helpers ---
 
 class C:
     """ANSI color codes (disabled automatically if output isn't a TTY)."""
@@ -103,7 +102,7 @@ def human_size(num_bytes: int) -> str:
     return f"{num_bytes} B"
 
 
-# ── FFmpeg filter construction ─────────────────────────────────────────────
+# --- FFmpeg filter construction ---
 
 def crop_filter() -> str:
     w = f"iw-{CROP['left']}-{CROP['right']}"
@@ -212,7 +211,7 @@ def output_valid(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 0
 
 
-# ── Clip selection parsing ─────────────────────────────────────────────────
+# --- Clip selection parsing ---
 
 def parse_clip_spec(spec: str) -> list[int]:
     """
@@ -244,7 +243,7 @@ def parse_clip_spec(spec: str) -> list[int]:
     return sorted(clips)
 
 
-# ── Job model ──────────────────────────────────────────────────────────────
+# --- Job model ---
 
 @dataclass
 class Clip:
@@ -273,7 +272,7 @@ def discover_clips(
             found[int(clip_num)] = clip_num
 
     if requested is not None:
-        # Warn about clips the user asked for that aren't present.
+        # warn about missing clips
         for n in requested:
             if n not in found:
                 warn(f"Clip {str(n).zfill(3)} -- no v1 file found, skipping")
@@ -304,10 +303,7 @@ def process_clip(clip: Clip) -> str:
 
     info(f"Clip {clip.number} ...")
 
-    # Try labels in order of reliability: explicit font file, then fontconfig,
-    # then no labels at all. Each tier is only attempted if the previous one
-    # didn't produce a valid output.
-    attempts = []
+    # Try labels in order of reliability: explicit font file, then fontconfig, then no labels at all
     if FONT_FILE:
         attempts.append(("font", build_filtergraph("font", FONT_FILE)))
     attempts.append(("fontconfig", build_filtergraph("fontconfig")))
@@ -333,7 +329,7 @@ def process_clip(clip: Clip) -> str:
     return "failed"
 
 
-# ── Entry point ────────────────────────────────────────────────────────────
+# --- Entry point ---
 
 OUTPUT_DIR = Path("./combined")  # set in main()
 FONT_FILE: str | None = None  # set in main()

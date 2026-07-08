@@ -9,7 +9,7 @@ Script: `combine_elasto.py`
 ## Requirements
 
 - Python 3.8+
-  - `winget install Python.Python.3.14` (Windows)
+    - `winget install Python.Python.3.14` (Windows)
 - FFmpeg installed and available in `PATH`
 - Fontconfig (optional: for video labels, auto-skips if unavailable)
 - Input videos named like:
@@ -55,10 +55,10 @@ python combine_elasto.py --patient 55
 
 Optional arguments:
 
-- `-i`, `--input-dir` — folder with input videos (default: current folder)
-- `-o`, `--output-dir` — output folder (default: `./combined`)
-- `-c`, `--clips` — clips to process, MATLAB-style (see below); omit to process all
-- `-h`, `--help` — show help
+- `-i`, `--input-dir`: folder with input videos (default: current folder)
+- `-o`, `--output-dir`: output folder (default: `./combined`)
+- `-c`, `--clips`: clips to process, MATLAB-style (see below); omit to process all
+- `-h`, `--help`: show help
 
 ### Selecting clips
 
@@ -103,9 +103,9 @@ fontconfig is available. If not, it automatically retries without labels.
 
 ## Troubleshooting
 
-- **`ffmpeg not found`** — Install FFmpeg and ensure it's on your `PATH`.
-- **`No matching files found`** — Check patient ID and file naming pattern.
-- **Clip skipped / missing files** — For each clip, all 3 files (`v1`, `v3`, `v4`) must exist.
-- **Videos created without labels** — Install fontconfig for labels:
+- **`ffmpeg not found`** - Install FFmpeg and ensure it's on your `PATH`.
+- **`No matching files found`** - Check patient ID and file naming pattern.
+- **Clip skipped / missing files** - For each clip, all 3 files (`v1`, `v3`, `v4`) must exist.
+- **Videos created without labels** - Install fontconfig for labels:
     - macOS: `brew install fontconfig`
     - Linux: `sudo apt install fontconfig`
