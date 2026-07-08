@@ -304,6 +304,7 @@ def process_clip(clip: Clip) -> str:
     info(f"Clip {clip.number} ...")
 
     # Try labels in order of reliability: explicit font file, then fontconfig, then no labels at all
+    attempts = []
     if FONT_FILE:
         attempts.append(("font", build_filtergraph("font", FONT_FILE)))
     attempts.append(("fontconfig", build_filtergraph("fontconfig")))
